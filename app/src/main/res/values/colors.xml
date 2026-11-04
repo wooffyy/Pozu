@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors -->
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#1565C0</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="accent">#FF5722</color>
+
+    <!-- Exercise Colors -->
+    <color name="exercise_pushup">#E53935</color>
+    <color name="exercise_squat">#43A047</color>
+    <color name="exercise_jumpingjack">#1E88E5</color>
+    <color name="exercise_calibration">#757575</color>
+
+    <!-- Feedback Colors -->
+    <color name="feedback_correct">#4CAF50</color>
+    <color name="feedback_incorrect">#F44336</color>
+    <color name="feedback_warning">#FF9800</color>
+
+    <!-- Background Colors -->
+    <color name="background">#FFFFFF</color>
+    <color name="background_dark">#121212</color>
+    <color name="surface">#F5F5F5</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_white">#FFFFFF</color>
+
+    <!-- Common -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="transparent">#00000000</color>
+</resources>

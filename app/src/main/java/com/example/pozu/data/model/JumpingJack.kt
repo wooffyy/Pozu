@@ -1,0 +1,171 @@
+package com.example.pozu.data.model
+
+import android.os.Parcelable
+import com.example.pozu.R
+import kotlinx.parcelize.Parcelize
+import kotlin.math.abs
+
+@Parcelize
+class JumpingJack(
+    override val id: String = "jumpingjack",
+    override val name: String = "Jumping Jack",
+    override val description: String = "Full body cardio exercise",
+    override val targetMuscles: String = "Full Body - Cardio",
+    override val iconRes: Int = R.drawable.jj_logo, 
+    override val instructions: List<String> = listOf(
+        "Stand with feet together and arms at sides",
+        "Jump while spreading legs shoulder-width apart",
+        "Simultaneously raise arms above head",
+        "Jump back to starting position",
+        "Maintain steady rhythm"
+    )
+) : Exercise(id, name, description, targetMuscles, iconRes, instructions), Parcelable {
+    companion object {
+        private const val LEG_SPREAD_THRESHOLD = 1.5f
+    }
+
+    override fun validate(landmarks: Map<String, PoseLandmark>): ExerciseResult {
+        val required = listOf(
+            PoseLandmark.LEFT_SHOULDER,
+            PoseLandmark.LEFT_ELBOW,
+            PoseLandmark.LEFT_WRIST,
+            PoseLandmark.RIGHT_SHOULDER,
+            PoseLandmark.RIGHT_ELBOW,
+            PoseLandmark.RIGHT_WRIST,
+            PoseLandmark.LEFT_HIP,
+            PoseLandmark.RIGHT_HIP,
+            PoseLandmark.LEFT_ANKLE,
+            PoseLandmark.RIGHT_ANKLE
+        )
+
+        if(!hasRequiredLandmarks(landmarks, required)) {
+            return ExerciseResult(
+                isCorrect = false,
+                feedback = "Stand facing the camera with full body visible",
+                confidence = 0.3f
+            )
+        }
+
+        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]!!
+        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]!!
+        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]!!
+        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]!!
+
+        val avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2
+        val avgWristY = (leftWrist.y + rightWrist.y) / 2
+        val isArmsUp = avgWristY < avgShoulderY
+
+        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]!!
+        val rightAnkle = landmarks[PoseLandmark.RIGHT_ANKLE]!!
+        val leftHip = landmarks[PoseLandmark.LEFT_HIP]!!
+        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]!!
+
+        val ankleSpread = abs(rightAnkle.x - leftAnkle.x)
+        val hipWidth = abs(rightHip.x - leftHip.x)
+        // Avoid division by zero if hip width is not detected
+        val legSpreadRatio = if (hipWidth > 0) ankleSpread / hipWidth else 0f
+
+        val isLegsOpen = legSpreadRatio > LEG_SPREAD_THRESHOLD
+
+        return when {
+            isArmsUp && isLegsOpen -> ExerciseResult(
+                isCorrect = true,
+                feedback = "Perfect open position! 🙌",
+                angle = avgWristY,
+                secondaryAngle = legSpreadRatio,
+                confidence = 0.9f
+            )
+
+            !isArmsUp && !isLegsOpen -> ExerciseResult(
+                isCorrect = true,
+                feedback = "Good closed position! 👏",
+                angle = avgWristY,
+                secondaryAngle = legSpreadRatio,
+                confidence = 0.9f
+            )
+
+            !isArmsUp && isLegsOpen -> ExerciseResult(
+                isCorrect = false,
+                feedback = "Raise your arms higher! ⬆️",
+                angle = avgWristY,
+                confidence = 0.7f
+            )
+
+            isArmsUp && !isLegsOpen -> ExerciseResult(
+                isCorrect = false,
+                feedback = "Spread your legs wider! ↔️",
+                angle = avgWristY,
+                secondaryAngle = legSpreadRatio,
+                confidence = 0.7f
+            )
+
+            else -> ExerciseResult(
+                isCorrect = true,
+                feedback = "Keep moving!",
+                angle = avgWristY,
+                confidence = 0.8f
+            )
+        }
+    }
+
+    override fun detectRepetition(
+        landmarks: Map<String, PoseLandmark>,
+        previousState: ExerciseState
+    ): RepetitionResult {
+        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
+        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
+        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
+        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
+        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]
+        val rightAnkle = landmarks[PoseLandmark.RIGHT_ANKLE]
+        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
+        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
+
+        if (leftShoulder == null || rightShoulder == null ||
+            leftWrist == null || rightWrist == null ||
+            leftAnkle == null || rightAnkle == null ||
+            leftHip == null || rightHip == null) {
+            return RepetitionResult(previousState, false, false)
+        }
+
+        // Check arm position
+        val avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2
+        val avgWristY = (leftWrist.y + rightWrist.y) / 2
+        val isArmsUp = avgWristY < avgShoulderY
+
+        // Check leg spread
+        val ankleSpread = abs(rightAnkle.x - leftAnkle.x)
+        val hipWidth = abs(rightHip.x - leftHip.x)
+        val legSpreadRatio = if (hipWidth > 0) ankleSpread / hipWidth else 0f
+        val isLegsOpen = legSpreadRatio > LEG_SPREAD_THRESHOLD
+
+        // Determine if the user is in the "open" position
+        val isOpen = isArmsUp && isLegsOpen
+
+        // State machine logic for detecting a repetition
+        return when (previousState) {
+            ExerciseState.IDLE, ExerciseState.CLOSED_POSITION -> {
+                if (isOpen) {
+                    // Transition from closed to open
+                    RepetitionResult(ExerciseState.OPEN_POSITION, false, true)
+                } else {
+                    // Stay in closed state
+                    RepetitionResult(ExerciseState.CLOSED_POSITION, false, true)
+                }
+            }
+            ExerciseState.OPEN_POSITION -> {
+                // ***MODIFIED LOGIC***
+                // If the user is no longer in the open position, count it as a rep
+                if (!isOpen) {
+                    // Completed one rep by moving from open to closed!
+                    RepetitionResult(ExerciseState.CLOSED_POSITION, true, true)
+                } else {
+                    // Stay in the open state
+                    RepetitionResult(ExerciseState.OPEN_POSITION, false, true)
+                }
+            }
+            // Default case to handle any other states, though they aren\'t used for this exercise
+            else -> RepetitionResult(previousState, false, false)
+        }
+    }
+}
