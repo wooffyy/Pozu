@@ -21,9 +21,10 @@ class Squat(
     )
 ) : Exercise(id, name, description, targetMuscles, iconRes, instructions), Parcelable {
     companion object {
-        private const val DOWN_ANGLE_THRESHOLD = 120f  // Was 110f - less deep squat OK
-        private const val UP_ANGLE_THRESHOLD = 150f    // Was 165f - easier to reach
-        private const val KNEE_SAFETY_RATIO = 1.3f
+        private const val DOWN_ANGLE_THRESHOLD = 120f
+        private const val UP_ANGLE_THRESHOLD = 150f
+        private const val TOE_TOLERANCE = 0.05f
+        private const val MAX_TORSO_LEAN = 60f
     }
 
     override fun validate(landmarks: Map<String, PoseLandmark>): ExerciseResult {
@@ -34,36 +35,52 @@ class Squat(
             PoseLandmark.LEFT_SHOULDER
         )
 
-        if(!hasRequiredLandmarks(landmarks, required)) {
+        if (!hasRequiredLandmarks(landmarks, required)) {
             return ExerciseResult(
                 isCorrect = false,
-                feedback = "Stand facing sideways to the camera",
+                feedback = "Turn your left side toward the camera",
                 confidence = 0.3f
             )
         }
 
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]!!
-        val leftKnee = landmarks[PoseLandmark.LEFT_KNEE]!!
-        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]!!
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]!!
+        val hip = landmarks[PoseLandmark.LEFT_HIP]!!
+        val knee = landmarks[PoseLandmark.LEFT_KNEE]!!
+        val ankle = landmarks[PoseLandmark.LEFT_ANKLE]!!
+        val shoulder = landmarks[PoseLandmark.LEFT_SHOULDER]!!
 
-        val kneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle)
-        val kneePastToes = leftKnee.x > (leftKnee.x * KNEE_SAFETY_RATIO)
-        val backAngle = calculateAngle(leftShoulder, leftHip, leftKnee)
-        val isBackStraight = backAngle > 150f
+        val kneeAngle = calculateAngle(hip, knee, ankle)
+
+        // 1. Lutut vs ujung kaki (dilewati kalau ujung kaki tidak terlihat)
+        val toe = landmarks[PoseLandmark.LEFT_FOOT_INDEX]
+        val kneePastToes = if (toe != null && toe.isVisible()) {
+            val shin = kotlin.math.hypot(knee.x - ankle.x, knee.y - ankle.y)
+            val facing = if (toe.x >= ankle.x) 1f else -1f
+            shin > 0f && (knee.x - toe.x) * facing / shin > TOE_TOLERANCE
+        } else false
+
+        // 2. Kemiringan badan dari garis vertikal (0° = tegak)
+        val torsoLean = Math.toDegrees(
+            kotlin.math.atan2(
+                kotlin.math.abs(shoulder.x - hip.x),
+                kotlin.math.abs(shoulder.y - hip.y)
+            ).toDouble()
+        ).toFloat()
+        val isBackOk = torsoLean < MAX_TORSO_LEAN
+
+        Log.d("SQUAT", "knee=$kneeAngle lean=$torsoLean")
 
         return when {
             kneePastToes -> ExerciseResult(
                 isCorrect = false,
-                feedback = "Don\'t let knees go past your toes!",
+                feedback = "Don't let knees go past your toes!",
                 angle = kneeAngle,
                 confidence = 0.8f
             )
-            !isBackStraight -> ExerciseResult(
+            !isBackOk -> ExerciseResult(
                 isCorrect = false,
                 feedback = "Keep your back straight and chest up",
                 angle = kneeAngle,
-                secondaryAngle = backAngle,
+                secondaryAngle = torsoLean,
                 confidence = 0.8f
             )
             kneeAngle < DOWN_ANGLE_THRESHOLD -> ExerciseResult(
