@@ -12,6 +12,7 @@ class ExerciseValidator {
     private var repCount = 0
     private var validRepCount = 0
     private var lastRepTime = 0L
+    private var formFaultInRep = false
 
     companion object {
         private const val TAG = "ExerciseValidator"
@@ -24,8 +25,11 @@ class ExerciseValidator {
     }
 
     fun validatePose(landmark: Map<String, PoseLandmark>): ExerciseResult {
-        val exercise = currentExercise ?: return ExerciseResult(isCorrect = false, feedback = "No exercise selected")
-        return exercise.validate(landmark)
+        val exercise = currentExercise ?: return ExerciseResult(false, "No exercise selected")
+        val result = exercise.validate(landmark)
+        if (currentState == Exercise.ExerciseState.DOWN_POSITION &&
+            !result.isCorrect && result.confidence >= 0.5f) formFaultInRep = true
+        return result
     }
 
     fun detectRepetition(landmarks: Map<String, PoseLandmark>): RepetitionDetectionResult {
@@ -46,10 +50,11 @@ class ExerciseValidator {
 
         // Check if the exercise logic flagged this as a completed rep
         if (repResult.repCompleted) {
+            val valid = repResult.isValid && !formFaultInRep
+            formFaultInRep = false
             repCount++
-            if (repResult.isValid) {
-                validRepCount++
-            }
+            if (valid) validRepCount++
+
             lastRepTime = currentTime
 
             Log.d(TAG, "REP COMPLETED! Total: $repCount, Valid: $validRepCount, New State: $currentState")
@@ -58,10 +63,9 @@ class ExerciseValidator {
                 repCompleted = true,
                 totalReps = repCount,
                 validReps = validRepCount,
-                wasValidRep = repResult.isValid
+                wasValidRep = valid
             )
         }
-
         // If no rep was completed, just return the current counts
         return RepetitionDetectionResult(false, repCount, validRepCount)
     }
@@ -75,6 +79,7 @@ class ExerciseValidator {
         repCount = 0
         validRepCount = 0
         lastRepTime = 0L
+        formFaultInRep = false
         Log.d(TAG, "Validator reset")
     }
 

@@ -21,6 +21,7 @@ data class PoseLandmark (val x: Float, val y: Float, val z: Float, val visibilit
         const val RIGHT_KNEE = "RIGHT_KNEE"
         const val LEFT_ANKLE = "LEFT_ANKLE"
         const val RIGHT_ANKLE = "RIGHT_ANKLE"
+        const val LEFT_FOOT_INDEX = "LEFT_FOOT_INDEX"
     }
 }
 

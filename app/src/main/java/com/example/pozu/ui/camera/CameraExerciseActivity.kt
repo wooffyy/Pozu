@@ -41,10 +41,8 @@ class CameraExerciseActivity : AppCompatActivity() {
     private var elapsedTime = 0L
     private var isExerciseActive = false
     private var isStopping = false
-
     private val repCount = AtomicInteger(0)
     private val validRepCount = AtomicInteger(0)
-
     private val timerHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
         override fun run() {
@@ -55,6 +53,7 @@ class CameraExerciseActivity : AppCompatActivity() {
             }
         }
     }
+    private var pausedAt = 0L
 
     companion object {
         private const val TAG = Constants.TAG_CAMERA
@@ -231,8 +230,21 @@ class CameraExerciseActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        isExerciseActive = false
-        timerHandler.removeCallbacks(timerRunnable)
+        if (isExerciseActive) {
+            isExerciseActive = false
+            pausedAt = System.currentTimeMillis()
+            timerHandler.removeCallbacks(timerRunnable)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pausedAt > 0 && !isStopping) {
+            startTime += System.currentTimeMillis() - pausedAt
+            pausedAt = 0
+            isExerciseActive = true
+            timerHandler.post(timerRunnable)
+        }
     }
 
     override fun onDestroy() {

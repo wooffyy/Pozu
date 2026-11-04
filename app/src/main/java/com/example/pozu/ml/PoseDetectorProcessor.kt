@@ -103,6 +103,7 @@ class PoseDetectorProcessor(context: Context) {
         mapLandmark(pose, MlKitPoseLandmark.RIGHT_KNEE, AppPoseLandmark.RIGHT_KNEE, landmarks)
         mapLandmark(pose, MlKitPoseLandmark.LEFT_ANKLE, AppPoseLandmark.LEFT_ANKLE, landmarks)
         mapLandmark(pose, MlKitPoseLandmark.RIGHT_ANKLE, AppPoseLandmark.RIGHT_ANKLE, landmarks)
+        mapLandmark(pose, MlKitPoseLandmark.LEFT_FOOT_INDEX, AppPoseLandmark.LEFT_FOOT_INDEX, landmarks)
 
         // Callback with detected landmarks
         if (landmarks.isNotEmpty()) {
