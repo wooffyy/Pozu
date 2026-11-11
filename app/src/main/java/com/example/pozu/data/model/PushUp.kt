@@ -1,7 +1,9 @@
 package com.example.pozu.data.model
 
 import android.os.Parcelable
+import android.util.Log
 import com.example.pozu.R
+import com.example.pozu.ml.ExerciseValidator
 import kotlinx.parcelize.Parcelize
 import kotlin.math.abs
 
@@ -53,6 +55,7 @@ class PushUp(
         val elbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist)
         val bodyAlignment = calculateAngle(leftShoulder, leftHip, leftAnkle)
         val isBodyStraight = abs(180f - bodyAlignment) < BODY_ALIGNMENT_TOLERANCE
+        Log.d("CAL", "PUSHUP elbow=$elbowAngle body=$bodyAlignment")
 
         return when {
             !isBodyStraight -> ExerciseResult(
@@ -83,17 +86,40 @@ class PushUp(
         }
     }
 
+    private fun calculateAngle(
+        firstPoint: PoseLandmark,
+        midPoint: PoseLandmark,
+        lastPoint: PoseLandmark
+    ): Float {
+        val radians = kotlin.math.atan2(lastPoint.y - midPoint.y, lastPoint.x - midPoint.x) -
+                kotlin.math.atan2(firstPoint.y - midPoint.y, firstPoint.x - midPoint.x)
+
+        var angle = Math.toDegrees(radians.toDouble()).toFloat()
+
+        if (angle < 0){
+            angle += 360f
+        }
+        if (angle > 180f){
+            angle = 360f - angle
+        }
+            return abs(angle)
+        }
+
     override fun detectRepetition(
         landmarks: Map<String, PoseLandmark>,
         previousState: ExerciseState
     ): RepetitionResult {
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val leftElbow = landmarks[PoseLandmark.LEFT_ELBOW]
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-
-        if (leftShoulder == null || leftElbow == null || leftWrist == null) {
+        val required = listOf(
+            PoseLandmark.LEFT_SHOULDER,
+            PoseLandmark.LEFT_ELBOW,
+            PoseLandmark.LEFT_WRIST
+        )
+        if (!hasRequiredLandmarks(landmarks, required)) {
             return RepetitionResult(previousState, false, false)
         }
+        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]!!
+        val leftElbow = landmarks[PoseLandmark.LEFT_ELBOW]!!
+        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]!!
 
         val elbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist)
 
@@ -116,24 +142,5 @@ class PushUp(
             else -> RepetitionResult(previousState, false, false)
         }
     }
-
-    private fun calculateAngle(
-        firstPoint: PoseLandmark,
-        midPoint: PoseLandmark,
-        lastPoint: PoseLandmark
-    ): Float {
-        val radians = kotlin.math.atan2(lastPoint.y - midPoint.y, lastPoint.x - midPoint.x) -
-                kotlin.math.atan2(firstPoint.y - midPoint.y, firstPoint.x - midPoint.x)
-
-        var angle = Math.toDegrees(radians.toDouble()).toFloat()
-
-        if (angle < 0){
-            angle += 360f
-        }
-        if (angle > 180f){
-            angle = 360f - angle
-        }
-            return abs(angle)
-        }
 
     }

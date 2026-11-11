@@ -4,6 +4,7 @@ import android.os.Parcelable
 import com.example.pozu.R
 import kotlinx.parcelize.Parcelize
 import kotlin.math.abs
+import android.util.Log
 
 @Parcelize
 class Squat(
@@ -108,13 +109,18 @@ class Squat(
         landmarks: Map<String, PoseLandmark>,
         previousState: ExerciseState
     ): RepetitionResult {
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val leftKnee = landmarks[PoseLandmark.LEFT_KNEE]
-        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]
+        val required = listOf(
+            PoseLandmark.LEFT_HIP,
+            PoseLandmark.LEFT_KNEE,
+            PoseLandmark.LEFT_ANKLE
+        )
 
-        if (leftHip == null || leftKnee == null || leftAnkle == null) {
+        if (!hasRequiredLandmarks(landmarks, required)) {
             return RepetitionResult(previousState, false, false)
         }
+        val leftHip = landmarks[PoseLandmark.LEFT_HIP]!!
+        val leftKnee = landmarks[PoseLandmark.LEFT_KNEE]!!
+        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]!!
 
         val kneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle)
         return when (previousState) {
